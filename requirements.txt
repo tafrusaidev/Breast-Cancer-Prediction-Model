@@ -1,8 +1,8 @@
-numpy==1.26.4
-pandas==2.2.1
-scikit-learn==1.4.1
-tensorflow==2.15.0
-matplotlib==3.8.3
-streamlit==1.32.2
-joblib==1.3.2
-h5py==3.10.0
+numpy
+pandas
+scikit-learn
+tensorflow
+matplotlib
+streamlit
+h5py
+seaborn
