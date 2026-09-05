@@ -1,9 +1,9 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import pickle
 import os
-from tensorflow.keras.models import load_model, Sequential
-from tensorflow.keras.layers import Dense
+from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.datasets import load_breast_cancer
 from sklearn.model_selection import train_test_split
@@ -41,23 +41,26 @@ def train_and_save_model():
         X_scaled, data.target, test_size=0.2, random_state=42
     )
     
-    model = Sequential([
-        Dense(16, activation='relu', input_shape=(30,)),
-        Dense(8, activation='relu'),
-        Dense(1, activation='sigmoid')
-    ])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    model.fit(X_train, y_train, epochs=10, batch_size=16, validation_split=0.1, verbose=0)
+    model = MLPClassifier(
+        hidden_layer_sizes=(16, 8),
+        activation='relu',
+        solver='adam',
+        max_iter=500,
+        random_state=42
+    )
+    model.fit(X_train, y_train)
     
-    model.save('breast_cancer_model.h5')
+    with open('breast_cancer_model.pkl', 'wb') as f:
+        pickle.dump(model, f)
     return model
 
 # Load model and data
 @st.cache_resource
 def load_model_and_data():
-    if not os.path.exists('breast_cancer_model.h5'):
+    if not os.path.exists('breast_cancer_model.pkl'):
         train_and_save_model()
-    model = load_model('breast_cancer_model.h5')
+    with open('breast_cancer_model.pkl', 'rb') as f:
+        model = pickle.load(f)
     data = load_breast_cancer()
     scaler = StandardScaler()
     scaler.fit(data.data)
@@ -84,7 +87,7 @@ if page == "🏠 Home":
         st.markdown("""
         ### Welcome to the AI-Powered Prediction System
         
-        This application uses a **Deep Learning CNN Model** to predict whether a breast tumor is:
+        This application uses a **Deep Learning Neural Network Model** to predict whether a breast tumor is:
         - **Benign** (Non-cancerous) ✅
         - **Malignant** (Cancerous) ⚠️
         
@@ -171,8 +174,8 @@ elif page == "📊 Prediction":
             input_scaled = scaler.transform(input_array)
             
             # Make prediction
-            prediction = model.predict(input_scaled, verbose=0)
-            prediction_prob = prediction[0][0]
+            prediction_proba = model.predict_proba(input_scaled)
+            prediction_prob = prediction_proba[0][1]  # Probability of benign (class 1)
             
             # Display results
             st.markdown("---")
@@ -225,11 +228,11 @@ elif page == "📊 Prediction":
             if st.button("🔄 Predict All Rows"):
                 # Scale and predict
                 df_scaled = scaler.transform(df.iloc[:, :30])
-                predictions = model.predict(df_scaled, verbose=0)
+                predictions_proba = model.predict_proba(df_scaled)
                 
                 # Add predictions to dataframe
-                df['Prediction'] = ['BENIGN' if p > 0.5 else 'MALIGNANT' for p in predictions]
-                df['Confidence'] = np.maximum(predictions, 1 - predictions) * 100
+                df['Prediction'] = ['BENIGN' if p[1] > 0.5 else 'MALIGNANT' for p in predictions_proba]
+                df['Confidence'] = [max(p[0], p[1]) * 100 for p in predictions_proba]
                 
                 st.write("Predictions:")
                 st.dataframe(df)
@@ -269,19 +272,18 @@ elif page == "📈 Information":
     with col2:
         st.subheader("🤖 Model Architecture")
         st.info("""
-        **Model Type**: Deep Neural Network (DNN)
+        **Model Type**: Neural Network (MLP)
         
         **Layers**:
         - Input: 30 features
-        - Dense Layer 1: 16 neurons (ReLU)
-        - Dense Layer 2: 8 neurons (ReLU)
-        - Output: 1 neuron (Sigmoid)
+        - Hidden Layer 1: 16 neurons (ReLU)
+        - Hidden Layer 2: 8 neurons (ReLU)
+        - Output: 2 classes (Softmax)
         
         **Training**:
         - Optimizer: Adam
-        - Loss: Binary Crossentropy
-        - Epochs: 10
-        - Batch Size: 16
+        - Loss: Log Loss
+        - Max Iterations: 500
         """)
     
     # Feature correlation heatmap
@@ -329,7 +331,7 @@ elif page == "📈 Information":
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: gray; font-size: 12px;'>
-    🏥 Breast Cancer Prediction System | Built with Streamlit & TensorFlow
+    🏥 Breast Cancer Prediction System | Built with Streamlit & Scikit-Learn
     <br>
     ⚠️ DISCLAIMER: For educational purposes only. Not a substitute for medical diagnosis.
 </div>

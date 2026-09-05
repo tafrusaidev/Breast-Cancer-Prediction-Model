@@ -1,8 +1,6 @@
 numpy
 pandas
 scikit-learn
-tensorflow
 matplotlib
 streamlit
-h5py
 seaborn
